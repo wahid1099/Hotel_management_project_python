@@ -1,0 +1,6 @@
+admin panel
+admin login
+encapsulationn inheritence
+polymorphysm
+abstraction
+database

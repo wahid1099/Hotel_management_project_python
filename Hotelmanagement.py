@@ -1,3 +1,12 @@
+from db_connection import connect_to_database
+from prettytable import PrettyTable
+
+
+class HotelManagement:
+    def __init__(self):
+        self.db = connect_to_database()
+        self.cursor = self.db.cursor()
+        
 class Room:
     def __init__(self, room_type, rate_per_night):
         self.room_type = room_type
@@ -42,7 +51,12 @@ class HotelBill:
         print("Your grand total bill is:", self.total_bill)
 
 class Hotel:
+    ADMIN_USERNAME = "admin"
+    ADMIN_PASSWORD = "password"
+
+        
     def __init__(self):
+        self.admin_logged_in = False
         print("\n\n*****WELCOME TO DIU HOTEL MANAGEMENT SYSTEM*****\n")
         self.rooms = [
             Room("A", 6000),
@@ -52,6 +66,19 @@ class Hotel:
         ]
         self.customers = []
         self.bill = HotelBill()
+        self.db = connect_to_database()
+        self.cursor = self.db.cursor()
+    
+    
+    def admin_login(self):
+        username = input("Enter admin username: ")
+        password = input("Enter admin password: ")
+        if username == self.ADMIN_USERNAME and password == self.ADMIN_PASSWORD:
+            print("Admin login successful.")
+            self.admin_logged_in = True
+        else:
+            print("Invalid admin credentials. Please try again.")
+
 
     def input_customer_data(self):
         name = input("\nEnter your name: ")
@@ -59,6 +86,12 @@ class Hotel:
         check_in_date = input("\nEnter your check in date: ")
         check_out_date = input("\nEnter your checkout date: ")
         print("Your room no.:", len(self.customers) + 101, "\n")
+        sql = "INSERT INTO customers (name, address, check_in_date, check_out_date, room_no) VALUES (%s, %s, %s, %s, %s)"
+        values = (name, address, check_in_date, check_out_date, len(self.customers) + 101)
+        self.cursor.execute(sql, values)
+        self.db.commit()
+        print("Customer added successfully.")
+        
         return Customer(name, address, check_in_date, check_out_date, len(self.customers) + 101)
 
     def room_rent(self):
@@ -130,54 +163,26 @@ class Hotel:
         print("*****ONLINE BOOKING*****")
         # Implement online booking system here
         pass
+    
+    def display_customers(self):
+        try:
+            self.cursor.execute("SELECT * FROM customers")
+            customers = self.cursor.fetchall()
+            table = PrettyTable()
+            table.field_names = ["ID", "Name", "Address", "Check-in Date", "Check-out Date", "Room No."]
+            for customer in customers:
+                table.add_row(customer)
+            print(table)
+        except Error as e:
+            print(f"Error retrieving customers: {e}")
 
-    def customer_loyalty_program(self):
-        print("*****CUSTOMER LOYALTY PROGRAM*****")
-        # Implement customer loyalty program here
-        pass
-
-    def room_customization(self):
-        print("*****ROOM CUSTOMIZATION OPTIONS*****")
-        # Implement room customization options here
-        pass
-
-    def virtual_concierge(self):
-        print("*****VIRTUAL CONCIERGE SERVICE*****")
-        # Implement virtual concierge service here
-        pass
-
-    def smart_devices_integration(self):
-        print("*****SMART DEVICES INTEGRATION*****")
-        # Implement smart devices integration here
-        pass
-
-    def event_planning_services(self):
-        print("*****EVENT PLANNING SERVICES*****")
-        # Implement event planning services here
-        pass
-
-    def environmental_sustainability(self):
-        print("*****ENVIRONMENTAL SUSTAINABILITY INITIATIVES*****")
-        # Implement environmental sustainability initiatives here
-        pass
-
-    def personalized_recommendations(self):
-        print("*****PERSONALIZED RECOMMENDATIONS*****")
-        # Implement personalized recommendations here
-        pass
-
-    def health_wellness_programs(self):
-        print("*****HEALTH AND WELLNESS PROGRAMS*****")
-        # Implement health and wellness programs here
-        pass
-
-    def cultural_experiences(self):
-        print("*****CULTURAL EXPERIENCES*****")
-        # Implement cultural experiences here
-        pass
 
     def main(self):
         while True:
+            if not self.admin_logged_in:
+                self.admin_login()
+                if not self.admin_logged_in:
+                    continue  # If admin login failed, continue to prompt for credentials
             print("1. Enter Customer Data")
             print("2. Calculate room rent")
             print("3. Calculate restaurant bill")
@@ -185,16 +190,9 @@ class Hotel:
             print("5. Calculate game bill")
             print("6. Show total cost")
             print("7. Online Booking")
-            print("8. Customer Loyalty Program")
-            print("9. Room Customization")
-            print("10. Virtual Concierge Service")
-            print("11. Smart Devices Integration")
-            print("12. Event Planning Services")
-            print("13. Environmental Sustainability Initiatives")
-            print("14. Personalized Recommendations")
-            print("15. Health and Wellness Programs")
-            print("16. Cultural Experiences")
-            print("17. EXIT")
+            print("8. Display Customers")
+         
+            print("9. EXIT")
             choice = int(input("\nEnter your choice: "))
             if choice == 1:
                 customer = self.input_customer_data()
@@ -214,24 +212,9 @@ class Hotel:
             elif choice == 7:
                 self.online_booking()
             elif choice == 8:
-                self.customer_loyalty_program()
+                self.display_customers()
+                
             elif choice == 9:
-                self.room_customization()
-            elif choice == 10:
-                self.virtual_concierge()
-            elif choice == 11:
-                self.smart_devices_integration()
-            elif choice == 12:
-                self.event_planning_services()
-            elif choice == 13:
-                self.environmental_sustainability()
-            elif choice == 14:
-                self.personalized_recommendations()
-            elif choice == 15:
-                self.health_wellness_programs()
-            elif choice == 16:
-                self.cultural_experiences()
-            elif choice == 17:
                 print("Exiting program...")
                 break
             else:
@@ -239,4 +222,5 @@ class Hotel:
 
 if __name__ == "__main__":
     hotel = Hotel()
+    hotel_management = HotelManagement()
     hotel.main()
