@@ -7,7 +7,7 @@ class HotelManagement:
     def __init__(self):
         self.db = connect_to_database()
         self.cursor = self.db.cursor()
-        
+       
 class Room:
     def __init__(self, room_type, rate_per_night):
         self.room_type = room_type
@@ -52,23 +52,37 @@ class HotelBill:
         print("Additional Service Charges is", self.additional_service_charge)
         print("Your grand total bill is:", self.total_bill)
 
+
+class User:
+    def __init__(self, email, password):
+        self.email = email
+        self.password = password
+
+    def login(self):
+        print("User login")
+
+    def logout(self):
+        print("User logout")
 class Hotel:
     ADMIN_USERNAME = "admin"
     ADMIN_PASSWORD = "password"
     USER_USERNAME = "user"
     USER_PASSWORD = "12345"
+    
 
         
     def __init__(self):
-        self.admin_logged_in = False
-        
-        self.user_logged_in = False
+        self._admin_logged_in = False
+        self._user_logged_in = False
+        self._db = connect_to_database()
+        self._cursor = self._db.cursor()
+        self._user_email = None
+
         print("\n\n*****WELCOME TO DIU HOTEL MANAGEMENT SYSTEM*****\n")
        
         self.customers = []
         self.bill = HotelBill()
-        self.db = connect_to_database()
-        self.cursor = self.db.cursor()
+       
     
     
     def admin_login(self):
@@ -76,25 +90,49 @@ class Hotel:
         password = input("Enter admin password: ")
         if username == self.ADMIN_USERNAME and password == self.ADMIN_PASSWORD:
             print("Admin login successful.")
-            self.admin_logged_in = True
+            self._admin_logged_in = True
         else:
             print("Invalid admin credentials. Please try again.")
     
     def user_login(self):
-        username = input("Enter user username: ")
+        username = input("Enter user email: ")
         password = input("Enter user password: ")
-        if username == self.USER_USERNAME and password == self.USER_PASSWORD:
-            print("User login successful.")
-            self.user_logged_in = True
-        else:
-            print("Invalid user credentials. Please try again.")
+       
+        try:
+            self._cursor.execute("SELECT * FROM users WHERE email = %s AND pasword = %s", (username, password))
+            user = self._cursor.fetchone()
+            if user:
+                print("User login successful.")
+                self._user_logged_in = True
+                self._user_email = username
+            else:
+                print("Invalid user credentials. Please try again.")
+        except Error as e:
+            print(f"Error authenticating user: {e}")
+    
+    
+    def _add_new_user(self, username, password):
+        if not self._admin_logged_in:
+            print("You must be logged in as admin to add a new user.")
+            return
+
+        try:
+            # Insert new user into the database
+            sql = "INSERT INTO users (email, pasword) VALUES (%s, %s)"
+            values = (username, password)
+            self._cursor.execute(sql, values)
+            self._db.commit()
+            print("New user added successfully.")
+        except Error as e:
+            self._db.rollback()
+            print(f"Error adding new user: {e}")
     
     
     
     def display_rooms(self):
         try:
-            self.cursor.execute("SELECT room_number, price, is_booked FROM rooms")
-            rooms = self.cursor.fetchall()
+            self._cursor.execute("SELECT room_number, price, is_booked FROM rooms")
+            rooms = self._cursor.fetchall()
             table = PrettyTable()
             table.field_names = ["Room Number", "Rate per Night", "Availability"]
             for room in rooms:
@@ -110,20 +148,59 @@ class Hotel:
         name = input("\nEnter your name: ")
         useremail = input("\nEnter your email: ")
         address = input("\nEnter your address: ")
-        roomno = input("\nEnter Room no : ")
+        room_no = input("\nEnter Room no : ")
         check_in_date = input("\nEnter your check in date: ")
         check_out_date = input("\nEnter your checkout date: ")
         print("Your room no.:", len(self.customers) + 101, "\n")
-        sql = "INSERT INTO customers (name, address, check_in_date, check_out_date, room_no,user_email) VALUES (%s, %s, %s, %s, %s, %s)"
-        values = (name, address, check_in_date, check_out_date,roomno ,useremail)
-        self.cursor.execute(sql, values)
-        self.db.commit()
-        print("Customer added successfully.")
+     
+        # self.db.commit()
+        # print("Customer Details added successfully.")
+        try:
+            # Query room price from rooms table
+            room_price_sql = "SELECT price FROM rooms WHERE room_number = %s"
+            self._cursor.execute(room_price_sql, (room_no,))
+            room_price = self._cursor.fetchone()[0]  # Fetch the room price
+
+            # Update booking table
+            booking_sql = "INSERT INTO bookings (room_number, customer_name, customer_email, check_in_date, check_out_date, total_bill) VALUES (%s, %s, %s, %s, %s, %s)"
+            booking_values = (room_no, name, useremail, check_in_date, check_out_date, room_price)
+            self._cursor.execute(booking_sql, booking_values)
+
+            # Update rooms table to mark room as booked
+            update_room_sql = "UPDATE rooms SET is_booked = TRUE WHERE room_number = %s"
+            self._cursor.execute(update_room_sql, (room_no,))
+            
+            sql = "INSERT INTO customers (name, address, check_in_date, check_out_date, room_no,user_email) VALUES (%s, %s, %s, %s, %s, %s)"
+            values = (name, address, check_in_date, check_out_date,room_no ,useremail)
+            self._cursor.execute(sql, values)
+
+            self._db.commit()
+            print("Customer added successfully.")
+
+            return Customer(name, address, check_in_date, check_out_date, room_no, useremail)
+        except Error as e:
+            self._db.rollback()
+            print(f"Error adding customer: {e}")
         
-        return Customer(name, address, check_in_date, check_out_date, roomno,useremail)
+        return Customer(name, address, check_in_date, check_out_date, room_no,useremail)
 
    
-
+    def display_bookings(self):
+        try:
+            self._cursor.execute("SELECT * FROM bookings")
+            bookings = self._cursor.fetchall()
+            if not bookings:
+                print("No bookings found.")
+                return
+            
+            table = PrettyTable()
+            table.field_names = ["Booking ID", "Room Number", "Customer Name", "User Email", "Check-in Date", "Check-out Date", "Total Bill "]
+            for booking in bookings:
+                table.add_row(booking)
+            print(table)
+        except Error as e:
+            print(f"Error retrieving bookings: {e}")
+            
     def restaurant_bill(self):
         print("*****RESTAURANT MENU*****")
         menu = {
@@ -188,20 +265,46 @@ class Hotel:
     
     def display_customers(self):
         try:
-            self.cursor.execute("SELECT * FROM customers")
-            customers = self.cursor.fetchall()
+            self._cursor.execute("SELECT * FROM customers")
+            customers = self._cursor.fetchall()
             table = PrettyTable()
-            table.field_names = ["ID", "Name", "Address", "Check-in Date", "Check-out Date", "Room No."]
+            table.field_names = ["ID", "Name", "Address", "Check-in Date", "Check-out Date", "Room No.","User Email"]
             for customer in customers:
                 table.add_row(customer)
             print(table)
         except Error as e:
             print(f"Error retrieving customers: {e}")
+    def _my_bookings(self):
+        
+        try:
+            # Query bookings associated with the user's email
+            self._cursor.execute("SELECT * FROM bookings WHERE customer_email = %s", (self._user_email,))
+            bookings = self._cursor.fetchall()
+            if not bookings:
+                print("No bookings found for the provided email.")
+                return
+            table = PrettyTable()
+            table.field_names = ["Booking ID", "Room Number", "Customer Name", "User Email", "Check-in Date", "Check-out Date", "Total Bill"]
+            for booking in bookings:
+                table.add_row(booking)
+            print(table)
+        except Error as e:
+            print(f"Error retrieving bookings: {e}")
+    
+    def user_logout(self):
+        self._user_logged_in = False
+        self._user_email = None
+        print("User logged out successfully.")
+
+    def admin_logout(self):
+        self._admin_logged_in = False
+        print("Admin logged out successfully.")
+
 
 
     def main(self):
         while True:
-            if not self.admin_logged_in and not self.user_logged_in:
+            if not self._admin_logged_in and not self._user_logged_in:
                 print("1. Admin Login")
                 print("2. User Login")
                 print("3. EXIT")
@@ -215,7 +318,7 @@ class Hotel:
                     break
                 else:
                     print("Invalid choice. Please try again.")
-            elif self.admin_logged_in:
+            elif self._admin_logged_in:
                 print("1. Enter Customer Data")
                 print("2. Calculate room rent")
                 print("3. Calculate restaurant bill")
@@ -225,8 +328,12 @@ class Hotel:
                 print("7. Online Booking")
                 print("8. Display Customers")
                 print("9. Display All Rooms")
+                print("10. Display All bookings")
+                print("11. Add New User")
+                print("12. Logout")
+                
             
-                print("10. EXIT")
+                print("13. EXIT")
                 choice = int(input("\nEnter your choice: "))
                 if choice == 1:
                     customer = self.input_customer_data()
@@ -250,22 +357,38 @@ class Hotel:
                 
                 elif choice == 9:
                     self.display_rooms()
-                    
                 elif choice == 10:
+                     self.display_bookings()
+                elif choice == 11:
+                    useremil=input('Enter user Email address=')
+                    password=input('Enter user password=')
+                    self._add_new_user(useremil,password)
+                
+                elif choice==12:
+                    self.admin_logout()
+                    
+                elif choice == 13:
                     print("Exiting program...")
                     break
                 else:
                     print("Invalid choice. Please try again.")
-            elif self.user_logged_in:
+            elif self._user_logged_in:
+
                 # User functionalities
                 print("1. Online Booking")
+                print("2.Show My Bookings")
+                print("3.Lougout")
                 # Other user functionalities...
-                print("9. EXIT")
+                print("4. EXIT")
                 user_choice = int(input("\nEnter your choice: "))
                 if user_choice == 1:
                     self.online_booking()
-                # Other user choices...
-                elif user_choice == 9:
+                elif user_choice == 2:
+                    self._my_bookings()
+                elif user_choice == 3:
+                    self.user_logout()
+# Other user choices...
+                elif user_choice == 4:
                     print("Exiting program...")
                     break
                 else:
