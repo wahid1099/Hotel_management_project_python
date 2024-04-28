@@ -2,20 +2,6 @@ from db_connection import connect_to_database
 from prettytable import PrettyTable
 from mysql.connector import Error
 
-
-class HotelManagement:
-    def __init__(self):
-        self.db = connect_to_database()
-        self.cursor = self.db.cursor()
-       
-class Room:
-    def __init__(self, room_type, rate_per_night):
-        self.room_type = room_type
-        self.rate_per_night = rate_per_night
-
-    def __str__(self):
-        return f"Room Type: {self.room_type}, Rate per Night: Rs {self.rate_per_night}"
-
 class Customer:
     def __init__(self, name, address, check_in_date, check_out_date, room_no,user_mail):
         self.name = name
@@ -28,46 +14,53 @@ class Customer:
     def __str__(self):
         return f"Name: {self.name}, Address: {self.address}, Check-in Date: {self.check_in_date}, Check-out Date: {self.check_out_date}, Room No.: {self.room_no}, User_email.: {self.user_mail}"
 
-class HotelBill:
-    def __init__(self, additional_service_charge=1800):
-        self.room_rent = 0
-        self.restaurant_bill = 0
-        self.laundry_bill = 0
-        self.game_bill = 0
-        self.total_bill = 0
-        self.additional_service_charge = additional_service_charge
-
-    def calculate_total_bill(self):
-        self.total_bill = self.room_rent + self.restaurant_bill + self.laundry_bill + self.game_bill + self.additional_service_charge
-
-    def display_bill(self, customer):
-        print("\n******HOTEL BILL******")
-        print("Customer details:")
-        print(customer)
-        print("Your Room rent is:", self.room_rent)
-        print("Your Food bill is:", self.restaurant_bill)
-        print("Your laundry bill is:", self.laundry_bill)
-        print("Your Game bill is:", self.game_bill)
-        print("Your sub total bill is:", self.total_bill - self.additional_service_charge)
-        print("Additional Service Charges is", self.additional_service_charge)
-        print("Your grand total bill is:", self.total_bill)
-
-
 class User:
     def __init__(self, email, password):
         self.email = email
         self.password = password
 
-    def login(self):
-        print("User login")
-
-    def logout(self):
-        print("User logout")
-class Hotel:
+class Admin(User):
     ADMIN_USERNAME = "admin"
     ADMIN_PASSWORD = "password"
-    USER_USERNAME = "user"
-    USER_PASSWORD = "12345"
+
+    def __init__(self):
+        super().__init__(self.ADMIN_USERNAME, self.ADMIN_PASSWORD)
+
+    def admin_login(self):
+        username = input("Enter admin username: ")
+        password = input("Enter admin password: ")
+        if username == self.email and password == self.password:
+            print("Admin login successful.")
+            return True
+        else:
+            print("Invalid admin credentials. Please try again.")
+            return False
+
+class HotelUser(User):
+    
+    def __init__(self, email, password):
+        super().__init__(email, password)
+        self._db = connect_to_database()
+        self._cursor = self._db.cursor()
+
+    def user_login(self,username,password):
+        
+        try:
+            self._cursor.execute("SELECT * FROM users WHERE email = %s AND pasword = %s", (username, password))
+            user = self._cursor.fetchone()
+            if user:
+                print("User login successful.")
+                self._user_logged_in = True
+                self._user_email = username
+                return True 
+            else:
+                print("Invalid user credentials. Please try again.")
+        except Error as e:
+            print(f"Error authenticating user: {e}")
+            return False
+    
+class Hotel:
+   
     
 
         
@@ -81,35 +74,25 @@ class Hotel:
         print("\n\n*****WELCOME TO DIU HOTEL MANAGEMENT SYSTEM*****\n")
        
         self.customers = []
-        self.bill = HotelBill()
+        self.admin = Admin()
+        
+
+        
        
     
     
     def admin_login(self):
-        username = input("Enter admin username: ")
-        password = input("Enter admin password: ")
-        if username == self.ADMIN_USERNAME and password == self.ADMIN_PASSWORD:
-            print("Admin login successful.")
-            self._admin_logged_in = True
-        else:
-            print("Invalid admin credentials. Please try again.")
+        self._admin_logged_in = self.admin.admin_login()
     
     def user_login(self):
-        username = input("Enter user email: ")
-        password = input("Enter user password: ")
+        email = input("Enter your email: ")
+        self._user_email=email
+        password = input("Enter your password: ")
+        user = HotelUser(email,password)
+
+        self._user_logged_in = user.user_login(email, password)
        
-        try:
-            self._cursor.execute("SELECT * FROM users WHERE email = %s AND pasword = %s", (username, password))
-            user = self._cursor.fetchone()
-            if user:
-                print("User login successful.")
-                self._user_logged_in = True
-                self._user_email = username
-            else:
-                print("Invalid user credentials. Please try again.")
-        except Error as e:
-            print(f"Error authenticating user: {e}")
-    
+       
     
     def _add_new_user(self, username, password):
         if not self._admin_logged_in:
@@ -201,64 +184,6 @@ class Hotel:
         except Error as e:
             print(f"Error retrieving bookings: {e}")
             
-    def restaurant_bill(self):
-        print("*****RESTAURANT MENU*****")
-        menu = {
-            1: ("water", 20),
-            2: ("tea", 10),
-            3: ("breakfast combo", 90),
-            4: ("lunch", 110),
-            5: ("dinner", 150)
-        }
-        while True:
-            choice = int(input("Enter your choice (1-6): "))
-            if choice == 6:
-                break
-            if choice in menu:
-                quantity = int(input("Enter the quantity: "))
-                self.bill.restaurant_bill += menu[choice][1] * quantity
-            else:
-                print("Invalid option")
-
-    def laundry_bill(self):
-        print("******LAUNDRY MENU*******")
-        menu = {
-            1: ("Shorts", 3),
-            2: ("Trousers", 4),
-            3: ("Shirt", 5),
-            4: ("Jeans", 6),
-            5: ("Girl suit", 8)
-        }
-        while True:
-            choice = int(input("Enter your choice (1-6): "))
-            if choice == 6:
-                break
-            if choice in menu:
-                quantity = int(input("Enter the quantity: "))
-                self.bill.laundry_bill += menu[choice][1] * quantity
-            else:
-                print("Invalid option")
-
-    def game_bill(self):
-        print("******GAME MENU*******")
-        menu = {
-            1: ("Table tennis", 60),
-            2: ("Bowling", 80),
-            3: ("Snooker", 70),
-            4: ("Video games", 90),
-            5: ("Pool", 50)
-        }
-        while True:
-            choice = int(input("Enter your choice (1-6): "))
-            if choice == 6:
-                break
-            if choice in menu:
-                hours = int(input("No. of hours: "))
-                self.bill.game_bill += menu[choice][1] * hours
-            else:
-                print("Invalid option")
-
-    def online_booking(self):
         print("*****ONLINE BOOKING*****")
         # Implement online booking system here
         pass
@@ -397,5 +322,5 @@ class Hotel:
 
 if __name__ == "__main__":
     hotel = Hotel()
-    hotel_management = HotelManagement()
+    # hotel_management = HotelManagement()
     hotel.main()
