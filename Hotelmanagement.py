@@ -18,6 +18,11 @@ class User:
     def __init__(self, email, password):
         self.email = email
         self.password = password
+    
+    @classmethod
+    def display_info(cls):
+        print("User information")
+    
 
 class Admin(User):
     ADMIN_USERNAME = "admin"
@@ -58,8 +63,40 @@ class HotelUser(User):
         except Error as e:
             print(f"Error authenticating user: {e}")
             return False
-    
-class Hotel:
+
+
+class BookingDisplay:
+    def __init__(self, cursor):
+        self._cursor = cursor
+
+    def display_bookings(self, email=None):
+        query = "SELECT * FROM bookings"
+        if email:
+            query += " WHERE customer_email = %s"
+            params = (email,)
+        else:
+            params = None
+
+        try:
+            self._cursor.execute(query, params)
+            bookings = self._cursor.fetchall()
+            if not bookings:
+                print("No bookings found.")
+                return
+            
+            table = PrettyTable()
+            table.field_names = ["Booking ID", "Room Number", "Customer Name", "User Email", "Check-in Date", "Check-out Date", "Total Bill"]
+            for booking in bookings:
+                table.add_row(booking)
+            print(table)
+        except Error as e:
+            print(f"Error retrieving bookings: {e}")
+            
+class Room:
+    def __init__(self, room_type, amenities):
+        self.room_type = room_type
+        self.amenities = amenities
+class Hotel(BookingDisplay):
    
     
 
@@ -70,6 +107,8 @@ class Hotel:
         self._db = connect_to_database()
         self._cursor = self._db.cursor()
         self._user_email = None
+        super().__init__(self._cursor)
+
 
         print("\n\n*****WELCOME TO DIU HOTEL MANAGEMENT SYSTEM*****\n")
        
@@ -169,24 +208,7 @@ class Hotel:
 
    
     def display_bookings(self):
-        try:
-            self._cursor.execute("SELECT * FROM bookings")
-            bookings = self._cursor.fetchall()
-            if not bookings:
-                print("No bookings found.")
-                return
-            
-            table = PrettyTable()
-            table.field_names = ["Booking ID", "Room Number", "Customer Name", "User Email", "Check-in Date", "Check-out Date", "Total Bill "]
-            for booking in bookings:
-                table.add_row(booking)
-            print(table)
-        except Error as e:
-            print(f"Error retrieving bookings: {e}")
-            
-        print("*****ONLINE BOOKING*****")
-        # Implement online booking system here
-        pass
+       super().display_bookings()
     
     def display_customers(self):
         try:
@@ -201,21 +223,7 @@ class Hotel:
             print(f"Error retrieving customers: {e}")
     def _my_bookings(self):
         
-        try:
-            # Query bookings associated with the user's email
-            self._cursor.execute("SELECT * FROM bookings WHERE customer_email = %s", (self._user_email,))
-            bookings = self._cursor.fetchall()
-            if not bookings:
-                print("No bookings found for the provided email.")
-                return
-            table = PrettyTable()
-            table.field_names = ["Booking ID", "Room Number", "Customer Name", "User Email", "Check-in Date", "Check-out Date", "Total Bill"]
-            for booking in bookings:
-                table.add_row(booking)
-            print(table)
-        except Error as e:
-            print(f"Error retrieving bookings: {e}")
-    
+       super().display_bookings(email=self._user_email)
     def user_logout(self):
         self._user_logged_in = False
         self._user_email = None
@@ -224,6 +232,21 @@ class Hotel:
     def admin_logout(self):
         self._admin_logged_in = False
         print("Admin logged out successfully.")
+    
+    def rooms_info(self):
+        
+        rooms = [
+            Room("STANDARD NON-AC", "1 Double Bed, Television, Telephone, Double-Door Cupboard, 1 Coffee table with 2 sofa, Balcony, attached washroom with hot/cold water."),
+            Room("STANDARD AC", "1 Double Bed, Television, Telephone, Double-Door Cupboard, 1 Coffee table with 2 sofa, Balcony, attached washroom with hot/cold water + Window/Split AC."),
+            Room("3-Bed NON-AC", "1 Double Bed + 1 Single Bed, Television, Telephone, a Triple-Door Cupboard, 1 Coffee table with 2 sofa, 1 Side table, Balcony with an Accent table with 2 Chair, attached washroom with hot/cold water."),
+            Room("3-Bed AC", "1 Double Bed + 1 Single Bed, Television, Telephone, a Triple-Door Cupboard, 1 Coffee table with 2 sofa, 1 Side table, Balcony with an Accent table with 2 Chair, attached washroom with hot/cold water + Window/Split AC.")
+        ]
+
+        print("         ------ HOTEL ROOMS INFO ------\n")
+        for room in rooms:
+            print(room.room_type)
+            print("---------------------------------------------------------------")
+            print(f"Room amenities include: {room.amenities}\n")
 
 
 
@@ -245,54 +268,40 @@ class Hotel:
                     print("Invalid choice. Please try again.")
             elif self._admin_logged_in:
                 print("1. Enter Customer Data")
-                print("2. Calculate room rent")
-                print("3. Calculate restaurant bill")
-                print("4. Calculate laundry bill")
-                print("5. Calculate game bill")
-                print("6. Show total cost")
-                print("7. Online Booking")
-                print("8. Display Customers")
-                print("9. Display All Rooms")
-                print("10. Display All bookings")
-                print("11. Add New User")
-                print("12. Logout")
+               
+                print("2. Display Customers")
+                print("3. Display All Rooms")
+                print("4. Display All bookings")
+                print("5. Add New User")
+                print("6. Room Info")
+                print("7. Logout")
                 
             
-                print("13. EXIT")
+                print("8. EXIT")
                 choice = int(input("\nEnter your choice: "))
                 if choice == 1:
                     customer = self.input_customer_data()
                     
+               
                 elif choice == 2:
-                    self.room_rent()
-                elif choice == 3:
-                    self.restaurant_bill()
-                elif choice == 4:
-                    self.laundry_bill()
-                elif choice == 5:
-                    self.game_bill()
-                elif choice == 6:
-                    self.bill.calculate_total_bill()
-                    customer = self.customers[-1]  # Get the last added customer
-                    self.bill.display_bill(customer)
-                elif choice == 7:
-                    self.online_booking()
-                elif choice == 8:
                     self.display_customers()
                 
-                elif choice == 9:
+                elif choice == 3:
                     self.display_rooms()
-                elif choice == 10:
+                elif choice == 4:
                      self.display_bookings()
-                elif choice == 11:
+                elif choice == 5:
                     useremil=input('Enter user Email address=')
                     password=input('Enter user password=')
                     self._add_new_user(useremil,password)
                 
-                elif choice==12:
+                elif choice==6:
+                    self.rooms_info()
+                
+                elif choice==7:
                     self.admin_logout()
                     
-                elif choice == 13:
+                elif choice == 8:
                     print("Exiting program...")
                     break
                 else:

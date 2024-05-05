@@ -1,1 +1,0 @@
-SELECT * FROM bookings WHERE customer_email 
