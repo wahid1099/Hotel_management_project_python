@@ -1,6 +1,7 @@
 from db_connection import connect_to_database
 from prettytable import PrettyTable
 from mysql.connector import Error
+from restaurant import RestaurantMenu
 
 class Customer:
     def __init__(self, name, address, check_in_date, check_out_date, room_no,user_mail):
@@ -114,6 +115,17 @@ class Hotel(BookingDisplay):
        
         self.customers = []
         self.admin = Admin()
+        self.restaurant_menu = RestaurantMenu()
+        
+    
+    def display_restaurant_menu(self):
+        self.restaurant_menu.display_menu()
+    
+    def place_order(self):
+        self.display_restaurant_menu()
+        item_id = input("Enter the ID of the item you want to order: ")
+        self.restaurant_menu.place_order(item_id)
+    
         
 
         
@@ -311,18 +323,24 @@ class Hotel(BookingDisplay):
                 # User functionalities
                 print("1. Online Booking")
                 print("2.Show My Bookings")
-                print("3.Lougout")
+                print("3.Show Food Menu")
+                print("4.Lougout")
                 # Other user functionalities...
-                print("4. EXIT")
+                print("5. EXIT")
                 user_choice = int(input("\nEnter your choice: "))
                 if user_choice == 1:
                     self.online_booking()
                 elif user_choice == 2:
                     self._my_bookings()
                 elif user_choice == 3:
-                    self.user_logout()
-# Other user choices...
+                    self.place_order()
+                   # self.place_order_confirm()
+                
                 elif user_choice == 4:
+                    self.user_logout()
+                    
+# Other user choices...
+                elif user_choice == 5:
                     print("Exiting program...")
                     break
                 else:
