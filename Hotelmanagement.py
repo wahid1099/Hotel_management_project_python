@@ -2,6 +2,7 @@ from db_connection import connect_to_database
 from prettytable import PrettyTable
 from mysql.connector import Error
 from restaurant import RestaurantMenu
+from abc import ABC, abstractmethod
 
 class Customer:
     def __init__(self, name, address, check_in_date, check_out_date, room_no,user_mail):
@@ -15,22 +16,30 @@ class Customer:
     def __str__(self):
         return f"Name: {self.name}, Address: {self.address}, Check-in Date: {self.check_in_date}, Check-out Date: {self.check_out_date}, Room No.: {self.room_no}, User_email.: {self.user_mail}"
 
-class User:
+class AbstractUser(ABC):
     def __init__(self, email, password):
         self.email = email
         self.password = password
     
-    @classmethod
-    def display_info(cls):
+    @abstractmethod
+    def display_info(self):
+        
         print("User information")
     
+    def get_email(self):
+        return self.email
 
-class Admin(User):
+    
+
+class Admin(AbstractUser):
     ADMIN_USERNAME = "admin"
     ADMIN_PASSWORD = "password"
 
     def __init__(self):
         super().__init__(self.ADMIN_USERNAME, self.ADMIN_PASSWORD)
+    
+    def display_info(self):
+        print("Admin is logged in...")
 
     def admin_login(self):
         username = input("Enter admin username: ")
@@ -42,12 +51,16 @@ class Admin(User):
             print("Invalid admin credentials. Please try again.")
             return False
 
-class HotelUser(User):
+class HotelUser(AbstractUser):
     
     def __init__(self, email, password):
         super().__init__(email, password)
         self._db = connect_to_database()
         self._cursor = self._db.cursor()
+        
+    
+    def display_info(self):
+        print("Normal user is logged in...")
 
     def user_login(self,username,password):
         
@@ -321,28 +334,27 @@ class Hotel(BookingDisplay):
             elif self._user_logged_in:
 
                 # User functionalities
-                print("1. Online Booking")
-                print("2.Show My Bookings")
-                print("3.Show Food Menu")
-                print("4.Lougout")
+               
+                print("1.Show My Bookings")
+                print("2.Show Food Menu")
+                print("3.Lougout")
                 # Other user functionalities...
-                print("5. EXIT")
+                print("4. EXIT")
                 user_choice = int(input("\nEnter your choice: "))
                 if user_choice == 1:
-                    self.online_booking()
+                     self._my_bookings()
                 elif user_choice == 2:
-                    self._my_bookings()
+                      self.place_order()
                 elif user_choice == 3:
-                    self.place_order()
+                  self.user_logout()
                    # self.place_order_confirm()
                 
                 elif user_choice == 4:
-                    self.user_logout()
-                    
-# Other user choices...
-                elif user_choice == 5:
-                    print("Exiting program...")
-                    break
+                      print("Exiting program...")
+                      break
+    
+               
+                  
                 else:
                     print("Invalid choice. Please try again.")
 
