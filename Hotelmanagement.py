@@ -4,8 +4,9 @@ from mysql.connector import Error
 from restaurant import RestaurantMenu
 from abc import ABC, abstractmethod
 from datetime import datetime
-
-
+from payment import Payment, CreditCardPayment, PayPalPayment, BankTransferPayment, CashPayment  # Importing  class
+from pdf_report import generate_bookings_report  # Import the PDF report function
+import os
 class Review:
     def __init__(self, cursor, db):
         self._cursor = cursor
@@ -346,6 +347,74 @@ class Hotel(BookingDisplay):
             print("You need to be logged in to view your reviews.")
             return
         self.review.display_reviews_by_user(self._user_email)
+        
+    # payment process_payment
+    
+    def process_payment(self, payment: Payment):
+        try:
+            payment_status = payment.process_payment()
+            sql = "INSERT INTO payments (customer_email, amount, payment_method, payment_status) VALUES (%s, %s, %s, %s)"
+            values = (payment.customer_email, payment.amount, payment.__class__.__name__, payment_status)
+            self._cursor.execute(sql, values)
+            self._db.commit()
+            print("Payment processed successfully.")
+        except Error as e:
+            self._db.rollback()
+            print(f"Error processing payment: {e}")
+
+    def make_payment(self):
+        if not self._user_logged_in:
+            print("You need to be logged in to make a payment.")
+            return
+
+        amount = float(input("Enter the amount to pay: "))
+        print("Select payment method:")
+        print("1. Credit Card")
+        print("2. PayPal")
+        print("3. Bank Transfer")
+        print("4. Cash")
+        choice = int(input("Enter your choice: "))
+
+        if choice == 1:
+            card_number = input("Enter card number: ")
+            expiry_date = input("Enter expiry date (MM/YY): ")
+            cvv = input("Enter CVV: ")
+            payment = CreditCardPayment(self._user_email, amount, card_number, expiry_date, cvv)
+        elif choice == 2:
+            paypal_id = input("Enter PayPal ID: ")
+            payment = PayPalPayment(self._user_email, amount, paypal_id)
+        elif choice == 3:
+            bank_account = input("Enter bank account number: ")
+            payment = BankTransferPayment(self._user_email, amount, bank_account)
+        elif choice == 4:
+            payment = CashPayment(self._user_email, amount)
+        else:
+            print("Invalid choice. Please try again.")
+            return
+
+        self.process_payment(payment)
+
+ # payment process_payment.
+ 
+ # generate pdf
+    def generate_bookings_pdf(self):
+        try:
+            self._cursor.execute("SELECT * FROM bookings")
+            bookings = self._cursor.fetchall()
+            if not bookings:
+                print("No bookings found.")
+                return
+
+            # Create the reports folder if it doesn't exist
+            reports_folder = 'reports'
+            if not os.path.exists(reports_folder):
+                os.makedirs(reports_folder)
+
+            filename = os.path.join(reports_folder, "bookings_report.pdf")
+            generate_bookings_report(bookings, filename)
+            print(f"Bookings report generated: {filename}")
+        except Error as e:
+            print(f"Error generating bookings report: {e}")
 
 
 
@@ -367,7 +436,7 @@ class Hotel(BookingDisplay):
                 else:
                     print("Invalid choice. Please try again.")
             elif self._admin_logged_in:
-                print("1. Enter Customer Data")
+                print("1. Enter Customer Data to book")
                
                 print("2. Display Customers")
                 print("3. Display All Rooms")
@@ -375,10 +444,11 @@ class Hotel(BookingDisplay):
                 print("5. Add New User")
                 print("6. Room Info")
                 print("7. Display All Reviews")
-                print("8. Logout")
+                print("8. Generate Bookings PDF Report")
+                print("9. Logout")
                 
             
-                print("9. EXIT")
+                print("10. EXIT")
                 choice = int(input("\nEnter your choice: "))
                 if choice == 1:
                     customer = self.input_customer_data()
@@ -402,10 +472,11 @@ class Hotel(BookingDisplay):
                 elif choice==7:
                     self.display_all_reviews()
                 
-                elif choice==8:
-                    self.admin_logout()
-                    
+                elif choice == 8:
+                    self.generate_bookings_pdf()
                 elif choice == 9:
+                    self.admin_logout()
+                elif choice == 10:
                     print("Exiting program...")
                     break
                 else:
@@ -418,9 +489,10 @@ class Hotel(BookingDisplay):
                 print("2.Show Food Menu")
                 print("3. Submit Review")
                 print("4. Display My Reviews")
-                print("5.Lougout")
+                print("5. Make Payment")
+                print("6.Lougout")
                 # Other user functionalities...
-                print("6. EXIT")
+                print("7. EXIT")
                 user_choice = int(input("\nEnter your choice: "))
                 if user_choice == 1:
                      self._my_bookings()
@@ -432,15 +504,12 @@ class Hotel(BookingDisplay):
                 elif user_choice == 4:
                     self.display_my_reviews()
                 elif user_choice == 5:
-                  self.user_logout()
-                   # self.place_order_confirm()
-                
+                    self.make_payment()
                 elif user_choice == 6:
-                      print("Exiting program...")
-                      break
-    
-               
-                  
+                    self.user_logout()
+                elif user_choice == 7:
+                    print("Exiting program...")
+                    break
                 else:
                     print("Invalid choice. Please try again.")
 
